@@ -14,7 +14,7 @@ class City {
 class HistoryService {
   private filePath = "db/searchHistory.json";
 
-  // TODO: Ensure the file exists before trying to read or write to it
+  //Ensure the file exists before trying to read or write to it
   private async ensureFileExists(): Promise<void> {
     try {
       console.log(`Ensuring file exists at path: ${this.filePath}`);
@@ -75,7 +75,7 @@ class HistoryService {
     return newCity;
   }
 
-  // * BONUS TODO: Define a removeCity method that removes a city from the searchHistory.json file
+  // Define a removeCity method that removes a city from the searchHistory.json file
   async removeCity(id: string): Promise<void> {
     let cities = await this.read();
     cities = cities.filter((city) => city.id !== id);

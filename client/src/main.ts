@@ -1,5 +1,15 @@
 import "./styles/jass.css";
 
+interface WeatherData {
+  city: string;
+  date: string;
+  icon: string;
+  iconDescription: string;
+  tempF: number;
+  windSpeed: number;
+  humidity: number;
+}
+
 // * All necessary DOM elements selected
 const searchForm: HTMLFormElement = document.getElementById(
   "search-form"
@@ -28,27 +38,50 @@ const humidityEl: HTMLParagraphElement = document.getElementById(
   "humidity"
 ) as HTMLParagraphElement;
 
-/*
+/* Helper function to display messages */
+const showMessage = (message: string, type: "error" | "info") => {
+  todayContainer.innerHTML = ""; // Clear previous content
+  const messageContainer = document.createElement("div");
+  messageContainer.classList.add(
+    "alert",
+    type === "error" ? "alert-danger" : "alert-info"
+  );
+  messageContainer.textContent = message;
+  todayContainer.append(messageContainer);
+};
 
-API Calls
+/* Function to normalize city name (capitalize each word) */
+const normalizeCityName = (city: string) => {
+  return city
+    .toLowerCase()
+    .split(" ")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
 
-*/
-
+/* API Calls */
 const fetchWeather = async (cityName: string) => {
-  const response = await fetch("/api/weather/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ cityName }),
-  });
+  try {
+    const normalizedCityName = normalizeCityName(cityName);
+    const response = await fetch("/api/weather/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ cityName: normalizedCityName }),
+    });
 
-  const weatherData = await response.json();
+    if (!response.ok) throw new Error("City not found.");
 
-  console.log("weatherData: ", weatherData);
+    const weatherData: WeatherData[] = await response.json();
 
-  renderCurrentWeather(weatherData[0]);
-  renderForecast(weatherData.slice(1));
+    renderCurrentWeather(weatherData[0]);
+    renderForecast(weatherData.slice(1));
+  } catch (error) {
+    console.error("Error fetching the weather data: ", error);
+    alert("City not found. Please try again.");
+    forecastContainer.innerHTML = ""; // Clear the forecast if there's an error
+  }
 };
 
 const fetchSearchHistory = async () => {
@@ -70,17 +103,11 @@ const deleteCityFromHistory = async (id: string) => {
   });
 };
 
-/*
-
-Render Functions
-
-*/
-
-const renderCurrentWeather = (currentWeather: any): void => {
+/* Render Functions */
+const renderCurrentWeather = (currentWeather: WeatherData): void => {
   const { city, date, icon, iconDescription, tempF, windSpeed, humidity } =
     currentWeather;
 
-  // convert the following to typescript
   heading.textContent = `${city} (${date})`;
   weatherIcon.setAttribute(
     "src",
@@ -89,17 +116,15 @@ const renderCurrentWeather = (currentWeather: any): void => {
   weatherIcon.setAttribute("alt", iconDescription);
   weatherIcon.setAttribute("class", "weather-img");
   heading.append(weatherIcon);
-  tempEl.textContent = `Temp: ${tempF}°F`;
+  tempEl.textContent = `Temperature: ${tempF}°F`;
   windEl.textContent = `Wind: ${windSpeed} MPH`;
   humidityEl.textContent = `Humidity: ${humidity} %`;
 
-  if (todayContainer) {
-    todayContainer.innerHTML = "";
-    todayContainer.append(heading, tempEl, windEl, humidityEl);
-  }
+  todayContainer.innerHTML = "";
+  todayContainer.append(heading, tempEl, windEl, humidityEl);
 };
 
-const renderForecast = (forecast: any): void => {
+const renderForecast = (forecast: WeatherData[]): void => {
   const headingCol = document.createElement("div");
   const heading = document.createElement("h4");
 
@@ -107,23 +132,18 @@ const renderForecast = (forecast: any): void => {
   heading.textContent = "5-Day Forecast:";
   headingCol.append(heading);
 
-  if (forecastContainer) {
-    forecastContainer.innerHTML = "";
-    forecastContainer.append(headingCol);
-  }
+  forecastContainer.innerHTML = "";
+  forecastContainer.append(headingCol);
 
-  for (let i = 0; i < forecast.length; i++) {
-    renderForecastCard(forecast[i]);
-  }
+  forecast.forEach(renderForecastCard);
 };
 
-const renderForecastCard = (forecast: any) => {
+const renderForecastCard = (forecast: WeatherData) => {
   const { date, icon, iconDescription, tempF, windSpeed, humidity } = forecast;
 
   const { col, cardTitle, weatherIcon, tempEl, windEl, humidityEl } =
     createForecastCard();
 
-  // Add content to elements
   cardTitle.textContent = date;
   weatherIcon.setAttribute(
     "src",
@@ -134,35 +154,36 @@ const renderForecastCard = (forecast: any) => {
   windEl.textContent = `Wind: ${windSpeed} MPH`;
   humidityEl.textContent = `Humidity: ${humidity} %`;
 
-  if (forecastContainer) {
-    forecastContainer.append(col);
-  }
+  forecastContainer.append(col);
 };
 
-const renderSearchHistory = async (searchHistory: any) => {
+const renderSearchHistory = async () => {
+  const searchHistory = await fetchSearchHistory();
   const historyList = await searchHistory.json();
 
-  if (searchHistoryContainer) {
-    searchHistoryContainer.innerHTML = "";
-
-    if (!historyList.length) {
-      searchHistoryContainer.innerHTML =
-        '<p class="text-center">No Previous Search History</p>';
-    }
-
-    // * Start at end of history array and count down to show the most recent cities at the top.
-    for (let i = historyList.length - 1; i >= 0; i--) {
-      const historyItem = buildHistoryListItem(historyList[i]);
-      searchHistoryContainer.append(historyItem);
-    }
+  searchHistoryContainer.innerHTML = "";
+  if (!historyList.length) {
+    searchHistoryContainer.innerHTML =
+      '<p class="text-center">   No Previous Search History</p>';
+    return;
   }
+
+  historyList.forEach((city: any) => {
+    const historyItem = buildHistoryListItem(city);
+    searchHistoryContainer.append(historyItem);
+  });
 };
 
-/*
+/* Helper Functions */
 
-Helper Functions
-
-*/
+const clearWeatherDisplay = () => {
+  heading.textContent = "Search for a city!";
+  //todayContainer.innerHTML = "";
+  forecastContainer.innerHTML = "";
+   tempEl.textContent = `Temperature: °F`;
+   windEl.textContent = `Wind: MPH`;
+   humidityEl.textContent = `Humidity: %`;
+};
 
 const createForecastCard = () => {
   const col = document.createElement("div");
@@ -202,12 +223,21 @@ const createForecastCard = () => {
   };
 };
 
+const buildHistoryListItem = (city: any) => {
+  const newBtn = createHistoryButton(city.name);
+  const deleteBtn = createDeleteButton();
+  deleteBtn.dataset.city = JSON.stringify(city);
+  const historyDiv = createHistoryDiv();
+  historyDiv.append(newBtn, deleteBtn);
+  return historyDiv;
+};
+
 const createHistoryButton = (city: string) => {
   const btn = document.createElement("button");
   btn.setAttribute("type", "button");
   btn.setAttribute("aria-controls", "today forecast");
   btn.classList.add("history-btn", "btn", "btn-secondary", "col-10");
-  btn.textContent = city;
+  btn.textContent = normalizeCityName(city);
 
   return btn;
 };
@@ -234,29 +264,30 @@ const createHistoryDiv = () => {
   return div;
 };
 
-const buildHistoryListItem = (city: any) => {
-  const newBtn = createHistoryButton(city.name);
-  const deleteBtn = createDeleteButton();
-  deleteBtn.dataset.city = JSON.stringify(city);
-  const historyDiv = createHistoryDiv();
-  historyDiv.append(newBtn, deleteBtn);
-  return historyDiv;
-};
-
-/*
-
-Event Handlers
-
-*/
+/* Event Handlers */
 
 const handleSearchFormSubmit = (event: any): void => {
   event.preventDefault();
 
-  if (!searchInput.value) {
-    throw new Error("City cannot be blank");
+  const search: string = searchInput.value.trim();
+  const regex = /^[a-zA-Z\s]*$/;
+
+  // Validate empty input
+  if (!search) {
+    alert(
+      "Search field is empty. Please enter a valid city name"
+    );
+    forecastContainer.innerHTML = ""; // Clear forecast on error
+    return;
   }
 
-  const search: string = searchInput.value.trim();
+  // Validate input format
+  if (!regex.test(search)) {
+    alert("Please enter a valid city name.");
+    forecastContainer.innerHTML = ""; // Clear forecast on error
+    return;
+  }
+
   fetchWeather(search).then(() => {
     getAndRenderHistory();
   });
@@ -269,18 +300,20 @@ const handleSearchHistoryClick = (event: any) => {
     fetchWeather(city).then(getAndRenderHistory);
   }
 };
-
 const handleDeleteHistoryClick = (event: any) => {
   event.stopPropagation();
-  const cityID = JSON.parse(event.target.getAttribute("data-city")).id;
-  deleteCityFromHistory(cityID).then(getAndRenderHistory);
+  const cityData = JSON.parse(event.target.getAttribute("data-city"));
+  const cityID = cityData.id;
+  const cityName = cityData.name;
+
+  deleteCityFromHistory(cityID).then(() => {
+    if (heading.textContent && heading.textContent.includes(cityName)) {
+      clearWeatherDisplay();
+    }
+    getAndRenderHistory();
+  });
 };
-
-/*
-
-Initial Render
-
-*/
+/* Initial Render */
 
 const getAndRenderHistory = () =>
   fetchSearchHistory().then(renderSearchHistory);

@@ -4,19 +4,19 @@ import WeatherService from "../../service/weatherService.js";
 
 const router = Router();
 
-// TODO: POST Request with city name to retrieve weather data
+// POST Request with city name to retrieve weather data
 router.post("/", (req: Request, res: Response) => {
   const cityName = req.body.cityName;
-  // TODO: GET weather data from city name
+  // GET weather data from city name
   WeatherService.getWeatherForCity(cityName).then((data) => {
-    // TODO: save city to search history
+    // save city to search history
     HistoryService.addCity(cityName);
     res.json(data);
     console.log("Weather Data:", data);
   });
 });
 
-// TODO: GET search history
+// GET search history
 router.get("/history", async (_, res) => {
   try {
     const history = await HistoryService.getCities();
@@ -26,7 +26,7 @@ router.get("/history", async (_, res) => {
   }
 });
 
-// * BONUS TODO: DELETE city from search history
+// DELETE city from search history
 router.delete("/history/:id", async (req, res) => {
   try {
     const { id } = req.params;
