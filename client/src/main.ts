@@ -38,18 +38,6 @@ const humidityEl: HTMLParagraphElement = document.getElementById(
   "humidity"
 ) as HTMLParagraphElement;
 
-/* Helper function to display messages */
-const showMessage = (message: string, type: "error" | "info") => {
-  todayContainer.innerHTML = ""; // Clear previous content
-  const messageContainer = document.createElement("div");
-  messageContainer.classList.add(
-    "alert",
-    type === "error" ? "alert-danger" : "alert-info"
-  );
-  messageContainer.textContent = message;
-  todayContainer.append(messageContainer);
-};
-
 /* Function to normalize city name (capitalize each word) */
 const normalizeCityName = (city: string) => {
   return city
