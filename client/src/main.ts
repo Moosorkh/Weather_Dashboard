@@ -310,3 +310,11 @@ searchForm?.addEventListener("submit", handleSearchFormSubmit);
 searchHistoryContainer?.addEventListener("click", handleSearchHistoryClick);
 
 getAndRenderHistory();
+
+const darkModeToggle = document.getElementById("dark-mode-toggle");
+
+if (darkModeToggle) {
+  darkModeToggle.addEventListener("click", () => {
+    document.body.classList.toggle("dark-mode");
+  });
+}
