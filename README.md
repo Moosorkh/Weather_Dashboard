@@ -104,7 +104,7 @@ router.get("/history", async (_, res) => {
   }
 });
 
-// * BONUS: DELETE city from search history
+// DELETE city from search history
 router.delete("/history/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -234,9 +234,10 @@ export default new HistoryService();
 ```ts
 import dayjs, { Dayjs } from "dayjs";
 import dotenv from "dotenv";
+import NodeCache from "node-cache";
 dotenv.config();
 
-// an interface for the Coordinates object
+// Define an interface for the Coordinates object
 interface Coordinates {
   name: string;
   lat: number;
@@ -245,7 +246,7 @@ interface Coordinates {
   state: string;
 }
 
-// a class for the Weather object
+// Define a class for the Weather object
 class Weather {
   constructor(
     public city: string,
@@ -254,13 +255,14 @@ class Weather {
     public tempF: number,
     public windSpeed: number,
     public icon: string,
-    public iconDescription: string,
+    public iconDescription: string
   ) {}
 }
 
-// the WeatherService class
+const rateLimiter = new NodeCache({ stdTTL: 60, checkperiod: 120 });
+
+// Complete the WeatherService class
 class WeatherService {
-  // the baseURL, API key, and city name properties
   private baseURL?: string;
   private apiKey?: string;
   private city = "";
@@ -270,11 +272,8 @@ class WeatherService {
     this.apiKey = process.env.API_KEY || "";
   }
 
-  // fetchLocationData method
   private async fetchLocationData(query: string) {
     try {
-      console.log(this.baseURL);
-      console.log(this.apiKey);
       if (!this.baseURL || !this.apiKey) {
         throw new Error("Invalid API URL or Key");
       }
@@ -287,48 +286,36 @@ class WeatherService {
       throw error;
     }
   }
-  // destructureLocationData method
+
   private destructureLocationData(locationData: Coordinates): Coordinates {
     if (!locationData) {
       throw new Error("Invalid Location Data");
     }
     const { name, lat, lon, country, state } = locationData;
 
-    const coordinates: Coordinates = {
-      name,
-      lat,
-      lon,
-      country,
-      state,
-    };
-    return coordinates;
+    return { name, lat, lon, country, state };
   }
 
   private buildGeocodeQuery(): string {
-    const geocodeQuery = `${this.baseURL}/geo/1.0/direct?q=${this.city}&limit=1&appid=${this.apiKey}`;
-    return geocodeQuery;
+    return `${this.baseURL}/geo/1.0/direct?q=${this.city}&limit=1&appid=${this.apiKey}`;
   }
 
-  // buildWeatherQuery method
   private buildWeatherQuery(coordinates: Coordinates): string {
     const { lat, lon } = coordinates;
-    const weatherQuery = `${this.baseURL}/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${this.apiKey}&units=imperial`;
-    return weatherQuery;
+    return `${this.baseURL}/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${this.apiKey}&units=imperial`;
   }
 
-  // fetchAndDestructureLocationData method
   private async fetchAndDestructureLocationData() {
     const locationData = await this.fetchLocationData(this.buildGeocodeQuery());
     return this.destructureLocationData(locationData);
   }
 
-  // fetchWeatherData method
   private async fetchWeatherData(coordinates: Coordinates) {
     try {
       const response = await fetch(this.buildWeatherQuery(coordinates)).then(
         (response) => response.json()
       );
-      if (!response) {
+      if (!response || !response.list) {
         throw new Error("Invalid Weather Data");
       }
       const currentWeather: Weather = this.parseCurrentWeather(
@@ -341,26 +328,23 @@ class WeatherService {
       return forecast;
     } catch (error) {
       console.log(error);
-      return error;
+      throw new Error("Weather API failed");
     }
   }
 
-  // parseCurrentWeather method
   private parseCurrentWeather(response: any) {
     const parsedDate = dayjs.unix(response.dt).format("MM/DD/YYYY");
-    const currentWeather = new Weather(
+    return new Weather(
       this.city,
       parsedDate,
+      response.main.humidity,
       response.main.temp,
       response.wind.speed,
-      response.main.humidity,
       response.weather[0].icon,
       response.weather[0].description || response.weather[0].main
     );
-    return currentWeather;
   }
 
-  // buildForecastArray method
   private buildForecastArray(currentWeather: Weather, weatherData: any[]) {
     const weatherForecast: Weather[] = [currentWeather];
     const filteredWeatherData = weatherData.filter((data: any) => {
@@ -372,9 +356,9 @@ class WeatherService {
         new Weather(
           this.city,
           dayjs.unix(day.dt).format("MM/DD/YYYY"),
+          day.main.humidity,
           day.main.temp,
           day.wind.speed,
-          day.main.humidity,
           day.weather[0].icon,
           day.weather[0].description || day.weather[0].main
         )
@@ -383,14 +367,21 @@ class WeatherService {
     return weatherForecast;
   }
 
-  // getWeatherForCity method
   async getWeatherForCity(city: string) {
     try {
+      const cacheKey = `${city}-${this.city}`;
+      const cachedWeather = rateLimiter.get(cacheKey);
+      if (cachedWeather) {
+        console.log(`Returning cached weather data for ${city}`);
+        return cachedWeather;
+      }
+
       this.city = city;
       const coordinates = await this.fetchAndDestructureLocationData();
       if (coordinates) {
-        this.city = coordinates.name;
         const weatherData = await this.fetchWeatherData(coordinates);
+
+        rateLimiter.set(cacheKey, weatherData);
         return weatherData;
       }
       throw new Error("Invalid Coordinates");
