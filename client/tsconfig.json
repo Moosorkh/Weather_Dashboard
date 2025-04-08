@@ -1,26 +1,10 @@
 {
-  "extends": "../tsconfig.json",
   "compilerOptions": {
-    "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "esModuleInterop": true,
-    "moduleResolution": "node",
+    "composite": true,
     "skipLibCheck": true,
-    "rootDir": "src",
-    "outDir": "dist",
-    "types": ["vite/client"],
-
-    /* Bundler mode */
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["src"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.config.js",
-    "**/vite.config.js"
-  ]
+  "include": ["vite.config.ts"]
 }
