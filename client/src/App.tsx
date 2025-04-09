@@ -9,7 +9,8 @@ import {
   ThemeProvider, 
   createTheme, 
   IconButton,
-  Stack
+  Paper,
+  useMediaQuery
 } from '@mui/material';
 import CloudIcon from '@mui/icons-material/Cloud';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
@@ -26,6 +27,7 @@ function App() {
   const [currentWeather, setCurrentWeather] = useState<WeatherData | undefined>();
   const [forecastData, setForecastData] = useState<WeatherData[]>([]);
   const [searchHistory, setSearchHistory] = useState<CityHistory[]>([]);
+  const isMobile = useMediaQuery('(max-width:600px)');
 
   // Create theme based on dark mode
   const theme = createTheme({
@@ -36,6 +38,39 @@ function App() {
       },
       secondary: {
         main: '#1bbc9b',
+      },
+      background: {
+        default: darkMode ? '#121212' : '#f5f5f5',
+        paper: darkMode ? '#1e1e1e' : '#ffffff',
+      },
+    },
+    typography: {
+      fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+      h5: {
+        fontWeight: 600,
+      },
+      h6: {
+        fontWeight: 500,
+      },
+    },
+    shape: {
+      borderRadius: 8,
+    },
+    components: {
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+          },
+        },
+      },
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            textTransform: 'none',
+            fontWeight: 500,
+          },
+        },
       },
     },
   });
@@ -94,27 +129,46 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ flexGrow: 1, minHeight: '100vh', bgcolor: 'background.default' }}>
-        <AppBar position="static">
+      <Box sx={{ 
+        flexGrow: 1, 
+        minHeight: '100vh', 
+        bgcolor: 'background.default',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
+        <AppBar position="static" elevation={4} sx={{ 
+          background: darkMode 
+            ? 'linear-gradient(90deg, #3a7bd5 0%, #1bbc9b 100%)' 
+            : 'linear-gradient(90deg, #2196f3 0%, #3f51b5 100%)' 
+        }}>
           <Toolbar>
-            <CloudIcon sx={{ mr: 2 }} />
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            <CloudIcon sx={{ mr: 2, fontSize: 28 }} />
+            <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
               Weather Dashboard
             </Typography>
-            <IconButton onClick={toggleDarkMode} color="inherit">
+            <IconButton onClick={toggleDarkMode} color="inherit" sx={{ 
+              bgcolor: 'rgba(255, 255, 255, 0.1)',
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.2)',
+              }
+            }}>
               {darkMode ? <Brightness7Icon /> : <Brightness4Icon />}
             </IconButton>
           </Toolbar>
         </AppBar>
         
-        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-          <Stack 
-            direction={{ xs: 'column', md: 'row' }} 
-            spacing={3} 
-            sx={{ width: '100%' }}
-          >
-            <Box sx={{ width: { xs: '100%', md: '30%', lg: '25%' } }}>
-              <Typography variant="h5" gutterBottom>
+        <Container maxWidth="xl" sx={{ mt: 4, mb: 4, flexGrow: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 3 }}>
+            <Paper 
+              elevation={3} 
+              sx={{ 
+                p: 3, 
+                width: isMobile ? '100%' : '25%', 
+                minWidth: isMobile ? 'auto' : '300px',
+                height: 'fit-content'
+              }}
+            >
+              <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
                 Search for a City
               </Typography>
               <SearchForm onSearch={fetchWeather} />
@@ -123,13 +177,13 @@ function App() {
                 onCitySelect={fetchWeather}
                 onCityDelete={handleCityDelete}
               />
-            </Box>
+            </Paper>
             
-            <Box sx={{ width: { xs: '100%', md: '70%', lg: '75%' } }}>
+            <Box sx={{ width: isMobile ? '100%' : '75%', display: 'flex', flexDirection: 'column', gap: 3 }}>
               <CurrentWeather currentWeather={currentWeather} />
               <Forecast forecastData={forecastData} />
             </Box>
-          </Stack>
+          </Box>
         </Container>
       </Box>
     </ThemeProvider>
