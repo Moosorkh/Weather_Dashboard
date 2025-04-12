@@ -28,10 +28,6 @@
     "noImplicitOverride": true /* Ensure overriding members in derived classes are marked with an override modifier. */,
     "useUnknownInCatchVariables": true /* Ensure 'unknown' is used for catch clause variables. */
   },
-  "exclude": [
-  "node_modules",
-  "dist",
-  "**/*.config.js",
-  "**/vite.config.js" // Include this specifically
-]
+  "include": ["src", "vite.config.ts"],
+  "references": [{ "path": "./client/tsconfig.node.json" }]
 }

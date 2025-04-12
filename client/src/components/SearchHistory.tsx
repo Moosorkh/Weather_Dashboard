@@ -2,7 +2,7 @@ import React from 'react';
 import { Typography, Box, List, ListItem, ListItemText, IconButton, Divider, Paper, useTheme } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import HistoryIcon from '@mui/icons-material/History';
-import { CityHistory } from '../types/weather';
+import { CityHistory } from '../types/weather.types';
 
 interface SearchHistoryProps {
   historyList: CityHistory[];

@@ -3,7 +3,7 @@ import { Card, CardContent, Typography, Box, useTheme } from '@mui/material';
 import ThermostatIcon from '@mui/icons-material/Thermostat';
 import AirIcon from '@mui/icons-material/Air';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
-import { WeatherData } from '../types/weather';
+import { WeatherData } from '../types/weather.types';
 
 interface CurrentWeatherProps {
   currentWeather?: WeatherData | undefined;

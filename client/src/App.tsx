@@ -20,7 +20,7 @@ import { CurrentWeather } from './components/CurrentWeather';
 import { Forecast } from './components/Forecast';
 import { SearchHistory } from './components/SearchHistory';
 import { weatherService } from './services/api';
-import { WeatherData, CityHistory } from './types/weather';
+import { WeatherData, CityHistory } from './types/weather.types';
 
 function App() {
   const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
