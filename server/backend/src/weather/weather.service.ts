@@ -91,18 +91,19 @@ export class WeatherService {
     };
 
     // Get forecast for the next 5 days (at noon)
-    const forecast = forecastList
-      .filter((item) => item.dt_txt.includes('12:00:00'))
-      .slice(0, 5)
-      .map((day) => ({
-        city,
-        date: dayjs.unix(day.dt).format('MM/DD/YYYY'),
-        icon: day.weather[0].icon,
-        iconDescription: day.weather[0].description,
-        tempF: day.main.temp,
-        windSpeed: day.wind.speed,
-        humidity: day.main.humidity,
-      }));
+    const forecastItems = forecastList
+    .filter((item) => item.dt_txt.includes('12:00:00'))
+    .slice(0, 5);
+  
+  const forecast = forecastItems.map((day) => ({
+    city,
+    date: dayjs.unix(day.dt).format('MM/DD/YYYY'),
+    icon: day.weather[0].icon,
+    iconDescription: day.weather[0].description,
+    tempF: day.main.temp,
+    windSpeed: day.wind.speed,
+    humidity: day.main.humidity,
+  }));
 
     return [currentWeather, ...forecast];
   }
