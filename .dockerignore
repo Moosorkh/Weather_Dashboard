@@ -9,3 +9,6 @@ README.md
 .vscode
 coverage
 .gitignore
+.env
+client/.env.local
+server/backend/.env

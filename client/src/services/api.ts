@@ -2,7 +2,7 @@ import axios from 'axios';
 import { WeatherData, CityHistory } from '../types/weather.types';
 
 // Use a consistent API base URL
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = '/api';
 
 // Create axios instance with proper configuration
 const apiClient = axios.create({
