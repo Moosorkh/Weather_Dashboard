@@ -38,4 +38,7 @@ COPY --from=backend /app/backend/prisma /app/backend/prisma
 COPY nginx.conf /etc/nginx/http.d/default.conf
 
 # Start both backend and frontend via Nginx
-CMD ["sh", "-c", "cd /app/backend && node main.js & nginx -g 'daemon off;'"]
+# CMD ["sh", "-c", "cd /app/backend && node main.js & nginx -g 'daemon off;'"]
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+CMD ["/app/start.sh"]
