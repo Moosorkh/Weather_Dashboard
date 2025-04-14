@@ -4,6 +4,6 @@ dockerfile = "Dockerfile"
 
 [deploy]
 startCommand = "sh -c \"cd /app/backend && node main.js & nginx -g 'daemon off;'\""
-healthcheckPath = "/"
+healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
