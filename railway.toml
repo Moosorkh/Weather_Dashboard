@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfile = "Dockerfile"
 
 [deploy]
-startCommand = "sh -c \"cd /app/backend && node main.js & nginx -g 'daemon off;'\""
+startCommand = "/app/start.sh"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
