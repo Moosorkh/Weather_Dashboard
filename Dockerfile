@@ -10,19 +10,19 @@ RUN npm install && npm run build
 FROM node:20 AS backend
 WORKDIR /app/backend
 COPY server/backend/ ./
+# Install dependencies
 RUN npm install
 RUN npm install -g @nestjs/cli
 # Add linux-musl-openssl-3.0.x to binaryTargets in schema.prisma
 RUN sed -i 's/provider *= *"prisma-client-js"/provider = "prisma-client-js"\n  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]/' prisma/schema.prisma
-RUN npx prisma generate
-RUN npx prisma migrate deploy || true
+# Skip Prisma operations during build - we'll do these at runtime
 RUN npm run build
 
-# Step 3: Final image (Node.js + Nginx combo)
+# Step 3: Final image
 FROM node:20-alpine
 
-# Install Nginx
-RUN apk add --no-cache nginx
+# Install Nginx and other utilities
+RUN apk add --no-cache nginx curl
 
 WORKDIR /app
 
@@ -37,8 +37,11 @@ COPY --from=backend /app/backend/prisma /app/backend/prisma
 # Copy Nginx configuration
 COPY nginx.conf /etc/nginx/http.d/default.conf
 
-# Start both backend and frontend via Nginx
-# CMD ["sh", "-c", "cd /app/backend && node main.js & nginx -g 'daemon off;'"]
+# Copy start script
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
+
+# Define environment variables
+ENV PORT=8080
+
 CMD ["/app/start.sh"]
