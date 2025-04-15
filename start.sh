@@ -1,29 +1,29 @@
 #!/bin/sh
-# Wait for database
+echo "Environment variables:"
+env | grep -v "PASSWORD\|KEY\|SECRET" | sort
+
 echo "Waiting for database to be ready..."
-sleep 15
+sleep 10
 
-# Start the backend
-cd /app/backend
 echo "Starting backend..."
-# Add DATABASE_URL validation and retry logic
-if [ -z "$DATABASE_URL" ]; then
-  echo "ERROR: DATABASE_URL is not set!"
-  exit 1
-fi
+cd /app/backend
+node main.js > /var/log/backend.log 2>&1 &
+BACKEND_PID=$!
 
-# Start nginx first - this will make healthcheck pass
 echo "Starting Nginx..."
 nginx -g 'daemon off;' &
 NGINX_PID=$!
 
-# Wait a bit before starting the backend
-sleep 5
+# Wait until backend is ready
+echo "Waiting for backend to be available on localhost:3001..."
+for i in $(seq 1 30); do
+  if nc -z localhost 3001; then
+    echo "Backend is ready!"
+    break
+  fi
+  echo "Waiting... ($i)"
+  sleep 2
+done
 
-# Start backend in the background
-echo "Starting NestJS backend..."
-node main.js > /var/log/backend.log 2>&1 &
-BACKEND_PID=$!
-
-# Keep the container running by waiting for nginx
+# Keep the container alive as long as Nginx is running
 wait $NGINX_PID
