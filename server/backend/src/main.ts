@@ -15,9 +15,14 @@ async function bootstrap() {
   // Serve static files from the public directory
   app.useStaticAssets(join(__dirname, '..', 'public'));
   
-  // For SPA routing, serve index.html for any non-API routes
+  // Make sure the health endpoint is NOT prefixed with /api
+  app.use('/health', (req, res) => {
+    return res.status(200).json({ status: 'ok' });
+  });
+  
+  // For SPA routing, serve index.html for any non-API and non-health routes
   app.use((req, res, next) => {
-    if (!req.path.startsWith('/api')) {
+    if (!req.path.startsWith('/api') && req.path !== '/health') {
       return res.sendFile(join(__dirname, '..', 'public', 'index.html'));
     }
     next();
