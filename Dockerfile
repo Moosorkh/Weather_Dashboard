@@ -1,47 +1,41 @@
-# Step 1: Build the React frontend
-FROM node:20 AS frontend
+# Build frontend
+FROM node:20-alpine AS frontend-build
 WORKDIR /app/client
 COPY client/ ./
-# Set the API URL for the frontend to use the backend on the same container
-ENV VITE_API_BASE_URL=/api
 RUN npm install && npm run build
 
-# Step 2: Build the NestJS backend
-FROM node:20 AS backend
-WORKDIR /app/backend
+# Build backend
+FROM node:20-alpine AS backend-build
+WORKDIR /app/server/backend
 COPY server/backend/ ./
-# Install dependencies
-RUN npm install
-RUN npm install -g @nestjs/cli
-# Add linux-musl-openssl-3.0.x to binaryTargets in schema.prisma
-RUN sed -i 's/provider *= *"prisma-client-js"/provider = "prisma-client-js"\n  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]/' prisma/schema.prisma
-# Skip Prisma operations during build - we'll do these at runtime
-RUN npm run build
+RUN npm install && \
+    npm install -g @nestjs/cli && \
+    npx prisma generate && \
+    npm run build
 
-# Step 3: Final image
+# Production image
 FROM node:20-alpine
-
-# Install Nginx and other utilities
-RUN apk add --no-cache nginx curl
-
 WORKDIR /app
 
-# Copy frontend (React build) to Nginx public folder
-COPY --from=frontend /app/client/dist /usr/share/nginx/html
+# Copy built frontend (to be served as static files)
+COPY --from=frontend-build /app/client/dist /app/public
 
-# Copy backend (NestJS dist + node_modules)
-COPY --from=backend /app/backend/dist /app/backend
-COPY --from=backend /app/backend/node_modules /app/backend/node_modules
-COPY --from=backend /app/backend/prisma /app/backend/prisma
+# Copy built backend
+COPY --from=backend-build /app/server/backend/dist /app/dist
+COPY --from=backend-build /app/server/backend/node_modules /app/node_modules
+COPY --from=backend-build /app/server/backend/prisma /app/prisma
+COPY --from=backend-build /app/server/backend/package.json /app/package.json
 
-# Copy Nginx configuration
-COPY nginx.conf /etc/nginx/http.d/default.conf
+# Create start script
+RUN echo '#!/bin/sh\n\
+echo "Running database migrations..."\n\
+npx prisma migrate deploy\n\
+echo "Starting application..."\n\
+node dist/main.js' > /app/start.sh && chmod +x /app/start.sh
 
-# Copy start script
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
-
-# Define environment variables
+# Set environment variables
 ENV PORT=8080
+ENV NODE_ENV=production
 
+# Start the application
 CMD ["/app/start.sh"]

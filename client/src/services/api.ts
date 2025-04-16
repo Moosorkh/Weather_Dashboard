@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { WeatherData, CityHistory } from '../types/weather.types';
 
-// Use a consistent API base URL
-const API_BASE_URL = '/api';
+// Get the API base URL from environment
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Create axios instance with proper configuration
 const apiClient = axios.create({
@@ -16,7 +16,14 @@ const apiClient = axios.create({
 export const weatherService = {
   async getWeatherForCity(cityName: string): Promise<WeatherData[]> {
     try {
+      console.log(`Sending request to: ${API_BASE_URL}/weather`);
       const response = await apiClient.post('/weather', { cityName });
+      
+      // Handle HTML responses (which indicate routing errors)
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        console.error('Received HTML instead of JSON - API endpoint misconfiguration');
+        return [];
+      }
       
       // Ensure we always return an array
       if (Array.isArray(response.data)) {
