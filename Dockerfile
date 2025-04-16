@@ -26,12 +26,9 @@ COPY --from=backend-build /app/server/backend/node_modules /app/node_modules
 COPY --from=backend-build /app/server/backend/prisma /app/prisma
 COPY --from=backend-build /app/server/backend/package.json /app/package.json
 
-# Create start script
-RUN echo '#!/bin/sh\n\
-echo "Running database migrations..."\n\
-npx prisma migrate deploy\n\
-echo "Starting application..."\n\
-node dist/main.js' > /app/start.sh && chmod +x /app/start.sh
+# Copy start script
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
 # Set environment variables
 ENV PORT=8080
