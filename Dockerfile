@@ -1,38 +1,24 @@
-# Build frontend
-FROM node:20-alpine AS frontend-build
-WORKDIR /app/client
-COPY client/ ./
-RUN npm install && npm run build
-
-# Build backend
-FROM node:20-alpine AS backend-build
-WORKDIR /app/server/backend
-COPY server/backend/ ./
-RUN npm install && \
-    npm install -g @nestjs/cli && \
-    npx prisma generate && \
-    npm run build
-
-# Production image
+# Use Node.js 20 Alpine for lightweight build
 FROM node:20-alpine
+
+# Set working directory
 WORKDIR /app
 
-# Copy built frontend (to be served as static files)
-COPY --from=frontend-build /app/client/dist /app/public
+# Install dependencies (with caching)
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
-# Copy built backend
-COPY --from=backend-build /app/server/backend/dist /app/dist
-COPY --from=backend-build /app/server/backend/node_modules /app/node_modules
-COPY --from=backend-build /app/server/backend/prisma /app/prisma
-COPY --from=backend-build /app/server/backend/package.json /app/package.json
+# Copy application source code
+COPY . .
 
-# Copy start script
-COPY start.sh /app/start.sh
+# Build the NestJS app
+RUN npm run build
+
+# Expose the port (NestJS default or your custom port)
+EXPOSE 3001
+
+# Ensure the start.sh script is executable
 RUN chmod +x /app/start.sh
 
-# Set environment variables
-ENV PORT=8080
-ENV NODE_ENV=production
-
-# Start the application
+# Start script
 CMD ["/app/start.sh"]
