@@ -7,17 +7,24 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     private readonly logger = new Logger(PrismaService.name);
 
     constructor(private configService: ConfigService) {
-        // Get DATABASE_URL from environment or use a fallback for debugging
-        const url = process.env.DATABASE_URL;
+        // Get DATABASE_URL from environment or construct one from Railway variables
+        let url = process.env.DATABASE_URL;
         
         if (!url) {
-            console.error('DATABASE_URL not found in environment variables!');
+            // Try to construct from individual parts if available
+            const pgPassword = process.env.POSTGRES_PASSWORD || 'kdUYRuWwIUaSW51zFVuuNViVzFVLcsSv';
+            const pgUser = process.env.POSTGRES_USER || 'postgres';
+            const pgHost = 'postgres';
+            const pgDatabase = process.env.POSTGRES_DB || 'railway';
+            
+            url = `postgresql://${pgUser}:${pgPassword}@${pgHost}:5432/${pgDatabase}`;
+            console.log(`Constructed DATABASE_URL from parts: ${url.replace(pgPassword, '******')}`);
         }
         
         super({
             datasources: {
                 db: {
-                    url: url || 'postgresql://postgres:postgres@localhost:5432/postgres',
+                    url: url,
                 },
             },
         });
