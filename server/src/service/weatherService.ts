@@ -135,7 +135,7 @@ class WeatherService {
 
   async getWeatherForCity(city: string) {
     try {
-      const cacheKey = `${city}-${this.city}`;
+      const cacheKey = city.toLowerCase();
       const cachedWeather = rateLimiter.get(cacheKey);
       if (cachedWeather) {
         console.log(`Returning cached weather data for ${city}`);
@@ -152,8 +152,8 @@ class WeatherService {
       }
       throw new Error("Invalid Coordinates");
     } catch (error) {
-      console.log(error);
-      return error;
+      console.error(`Error fetching weather for ${city}:`, error);
+      throw error;
     }
   }
 }

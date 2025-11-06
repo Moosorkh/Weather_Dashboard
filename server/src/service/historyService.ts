@@ -1,4 +1,3 @@
-import fs from "fs/promises";
 import { v4 as uuidv4 } from "uuid";
 
 class City {
@@ -11,75 +10,65 @@ class City {
   }
 }
 
+// In-memory storage for session-based history
+// Key: sessionId, Value: City[]
+const sessionHistory = new Map<string, City[]>();
+
 class HistoryService {
-  private filePath = "db/searchHistory.json";
-
-  //Ensure the file exists before trying to read or write to it
-  private async ensureFileExists(): Promise<void> {
-    try {
-      console.log(`Ensuring file exists at path: ${this.filePath}`);
-      await fs.access(this.filePath);
-    } catch (error: any) {
-      if (error.code === "ENOENT") {
-        console.log(
-          `File does not exist. Creating file at path: ${this.filePath}`
-        );
-        await fs.writeFile(this.filePath, "[]", "utf8");
-      } else {
-        throw error; // Other errors should be handled properly
-      }
+  // Get cities for a specific session
+  async getCities(sessionId: string): Promise<City[]> {
+    if (!sessionId) {
+      return [];
     }
+    return sessionHistory.get(sessionId) || [];
   }
 
-  private async read(): Promise<City[]> {
-    await this.ensureFileExists();
-    console.log(`Reading file at path: ${this.filePath}`);
-    const data = await fs.readFile(this.filePath, "utf8");
-
-    // Handle potential parsing errors
-    let cities: City[] = [];
-    try {
-      cities = JSON.parse(data);
-    } catch (error) {
-      console.log(`Error parsing JSON data: ${error}`);
-      cities = [];
+  // Add city to a specific session's history
+  async addCity(sessionId: string, cityName: string): Promise<City | null> {
+    if (!sessionId) {
+      throw new Error("Session ID is required");
     }
-    return cities;
-  }
 
-  private async write(cities: City[]): Promise<void> {
-    await fs.writeFile(this.filePath, JSON.stringify(cities, null, 2), "utf-8");
-  }
-
-  async getCities(): Promise<City[]> {
-    return await this.read();
-  }
-
-  async addCity(cityName: string): Promise<City | null> {
     if (!cityName) {
       throw new Error("City name is required");
     }
 
     const newCity = new City(cityName);
-    const cities = await this.read();
+    const cities = sessionHistory.get(sessionId) || [];
 
-    // Check if the city already exists
-    if (cities.find((city) => city.name === cityName)) {
-      console.log(`City "${cityName}" already exists`);
+    // Check if the city already exists in this session's history
+    if (
+      cities.find((city) => city.name.toLowerCase() === cityName.toLowerCase())
+    ) {
+      console.log(`City "${cityName}" already exists in session ${sessionId}`);
       return null;
     }
 
     cities.push(newCity);
-    await this.write(cities);
+    sessionHistory.set(sessionId, cities);
 
     return newCity;
   }
 
-  // Define a removeCity method that removes a city from the searchHistory.json file
-  async removeCity(id: string): Promise<void> {
-    let cities = await this.read();
+  // Remove city from a specific session's history
+  async removeCity(sessionId: string, id: string): Promise<void> {
+    if (!sessionId) {
+      throw new Error("Session ID is required");
+    }
+
+    let cities = sessionHistory.get(sessionId) || [];
     cities = cities.filter((city) => city.id !== id);
-    await this.write(cities);
+    sessionHistory.set(sessionId, cities);
+  }
+
+  // Optional: Clear all history for a session
+  async clearSession(sessionId: string): Promise<void> {
+    sessionHistory.delete(sessionId);
+  }
+
+  // Optional: Get total number of active sessions (for debugging)
+  getActiveSessionsCount(): number {
+    return sessionHistory.size;
   }
 }
 
