@@ -144,6 +144,7 @@
                 <i class="fas fa-map-marker-alt"></i>
                 Search for a city to get started
               </h2>
+              <img id="weather-img" class="weather-icon-large" alt="Weather icon" src="" style="display: none;">
             </div>
             <div class="weather-stats">
               <div class="stat-card">
@@ -192,7 +193,7 @@
       if (isDarkMode) {
         document.body.classList.add('dark-mode');
       }
-
+      
       // Small delay to ensure fonts are loaded
       setTimeout(() => {
         document.body.classList.add('loaded');
