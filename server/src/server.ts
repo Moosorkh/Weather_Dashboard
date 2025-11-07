@@ -3,6 +3,7 @@ import express from "express";
 import session from "express-session";
 import path from "path";
 import { fileURLToPath } from "url";
+import { initializeDatabase } from "./db/db.js";
 
 dotenv.config();
 
@@ -48,7 +49,20 @@ app.use(express.urlencoded({ extended: true }));
 // Implement middleware to connect the routes
 app.use(routes);
 
-// Start the server on the port
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// Initialize database and start the server
+async function startServer() {
+  try {
+    // Initialize database tables
+    await initializeDatabase();
+
+    // Start the server
+    app.listen(PORT, () => {
+      console.log(`Server is running on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+startServer();

@@ -3,6 +3,7 @@ import express from "express";
 import session from "express-session";
 import path from "path";
 import { fileURLToPath } from "url";
+import { initializeDatabase } from "./db/db.js";
 dotenv.config();
 // Import the routes
 import routes from "./routes/index.js";
@@ -11,6 +12,10 @@ const PORT = process.env.PORT || 3001;
 // Get __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Trust proxy - needed for Railway and other hosting platforms
+if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+}
 // Configure session middleware
 app.use(session({
     secret: process.env.SESSION_SECRET ||
@@ -21,6 +26,7 @@ app.use(session({
         secure: process.env.NODE_ENV === "production", // Use secure cookies in production
         httpOnly: true,
         maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Required for cross-site cookies
     },
 }));
 // Serve static files from client dist folder
@@ -30,7 +36,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // Implement middleware to connect the routes
 app.use(routes);
-// Start the server on the port
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
+// Initialize database and start the server
+async function startServer() {
+    try {
+        // Initialize database tables
+        await initializeDatabase();
+        // Start the server
+        app.listen(PORT, () => {
+            console.log(`Server is running on http://localhost:${PORT}`);
+        });
+    }
+    catch (error) {
+        console.error("Failed to start server:", error);
+        process.exit(1);
+    }
+}
+startServer();

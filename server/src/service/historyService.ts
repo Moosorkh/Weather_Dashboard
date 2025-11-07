@@ -1,29 +1,48 @@
 import { v4 as uuidv4 } from "uuid";
+import pool from "../db/db.js";
 
 class City {
   id: string;
   name: string;
 
-  constructor(name: string) {
-    this.id = uuidv4();
+  constructor(id: string, name: string) {
+    this.id = id;
     this.name = name;
   }
 }
 
-// In-memory storage for session-based history
-// Key: sessionId, Value: City[]
-const sessionHistory = new Map<string, City[]>();
+// Fallback in-memory storage when database is not available
+const inMemoryHistory = new Map<string, City[]>();
 
 class HistoryService {
-  // Get cities for a specific session
+  // Get cities for a specific session from database
   async getCities(sessionId: string): Promise<City[]> {
     if (!sessionId) {
       return [];
     }
-    return sessionHistory.get(sessionId) || [];
+
+    // Use in-memory storage if no database
+    if (!pool) {
+      return inMemoryHistory.get(sessionId) || [];
+    }
+
+    try {
+      const result = await pool.query(
+        `SELECT id, city_name, created_at 
+         FROM search_history 
+         WHERE session_id = $1 
+         ORDER BY created_at DESC`,
+        [sessionId]
+      );
+
+      return result.rows.map((row) => new City(row.id, row.city_name));
+    } catch (error) {
+      console.error("Error fetching cities from database:", error);
+      return [];
+    }
   }
 
-  // Add city to a specific session's history
+  // Add city to a specific session's history in database
   async addCity(sessionId: string, cityName: string): Promise<City | null> {
     if (!sessionId) {
       throw new Error("Session ID is required");
@@ -33,42 +52,110 @@ class HistoryService {
       throw new Error("City name is required");
     }
 
-    const newCity = new City(cityName);
-    const cities = sessionHistory.get(sessionId) || [];
+    const cityId = uuidv4();
 
-    // Check if the city already exists in this session's history
-    if (
-      cities.find((city) => city.name.toLowerCase() === cityName.toLowerCase())
-    ) {
-      console.log(`City "${cityName}" already exists in session ${sessionId}`);
-      return null;
+    // Use in-memory storage if no database
+    if (!pool) {
+      const cities = inMemoryHistory.get(sessionId) || [];
+      if (cities.find((c) => c.name.toLowerCase() === cityName.toLowerCase())) {
+        console.log(
+          `City "${cityName}" already exists in session ${sessionId}`
+        );
+        return null;
+      }
+      const newCity = new City(cityId, cityName);
+      cities.push(newCity);
+      inMemoryHistory.set(sessionId, cities);
+      return newCity;
     }
 
-    cities.push(newCity);
-    sessionHistory.set(sessionId, cities);
+    try {
+      // Insert city, ignore if duplicate (session_id + city_name are unique)
+      const result = await pool.query(
+        `INSERT INTO search_history (id, session_id, city_name) 
+         VALUES ($1, $2, $3) 
+         ON CONFLICT (session_id, city_name) DO NOTHING
+         RETURNING id, city_name`,
+        [cityId, sessionId, cityName]
+      );
 
-    return newCity;
+      // If no rows returned, city already exists
+      if (result.rows.length === 0) {
+        console.log(
+          `City "${cityName}" already exists in session ${sessionId}`
+        );
+        return null;
+      }
+
+      return new City(result.rows[0].id, result.rows[0].city_name);
+    } catch (error) {
+      console.error("Error adding city to database:", error);
+      throw error;
+    }
   }
 
-  // Remove city from a specific session's history
+  // Remove city from a specific session's history in database
   async removeCity(sessionId: string, id: string): Promise<void> {
     if (!sessionId) {
       throw new Error("Session ID is required");
     }
 
-    let cities = sessionHistory.get(sessionId) || [];
-    cities = cities.filter((city) => city.id !== id);
-    sessionHistory.set(sessionId, cities);
+    // Use in-memory storage if no database
+    if (!pool) {
+      const cities = inMemoryHistory.get(sessionId) || [];
+      inMemoryHistory.set(
+        sessionId,
+        cities.filter((c) => c.id !== id)
+      );
+      return;
+    }
+
+    try {
+      await pool.query(
+        `DELETE FROM search_history 
+         WHERE session_id = $1 AND id = $2`,
+        [sessionId, id]
+      );
+    } catch (error) {
+      console.error("Error removing city from database:", error);
+      throw error;
+    }
   }
 
-  // Optional: Clear all history for a session
+  // Clear all history for a session
   async clearSession(sessionId: string): Promise<void> {
-    sessionHistory.delete(sessionId);
+    // Use in-memory storage if no database
+    if (!pool) {
+      inMemoryHistory.delete(sessionId);
+      return;
+    }
+
+    try {
+      await pool.query(`DELETE FROM search_history WHERE session_id = $1`, [
+        sessionId,
+      ]);
+    } catch (error) {
+      console.error("Error clearing session from database:", error);
+      throw error;
+    }
   }
 
-  // Optional: Get total number of active sessions (for debugging)
-  getActiveSessionsCount(): number {
-    return sessionHistory.size;
+  // Get total number of active sessions (for debugging)
+  async getActiveSessionsCount(): Promise<number> {
+    // Use in-memory storage if no database
+    if (!pool) {
+      return inMemoryHistory.size;
+    }
+
+    try {
+      const result = await pool.query(
+        `SELECT COUNT(DISTINCT session_id) as count FROM search_history`
+      );
+      return parseInt(result.rows[0].count);
+    } catch (error) {
+      console.error("Error getting active sessions count:", error);
+      return 0;
+    }
   }
 }
 
