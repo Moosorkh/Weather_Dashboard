@@ -21,9 +21,6 @@ interface WeatherData {
 let currentUnit: "F" | "C" = "F";
 let currentWeatherData: WeatherData[] = [];
 let currentCityCoordinates: { lat: number; lon: number } | null = null;
-
-// Validation state - track if user selected from autocomplete
-let validCitySelected = false;
 let selectedCityName = "";
 
 // * All necessary DOM elements selected
@@ -33,8 +30,8 @@ const searchForm: HTMLFormElement = document.getElementById(
 const searchInput: HTMLInputElement = document.getElementById(
   "search-input"
 ) as HTMLInputElement;
-const searchButton = document.getElementById(
-  "search-button"
+const clearButton = document.getElementById(
+  "clear-button"
 ) as HTMLButtonElement;
 const todayContainer = document.querySelector("#today") as HTMLDivElement;
 const forecastContainer = document.querySelector("#forecast") as HTMLDivElement;
@@ -425,11 +422,7 @@ const hideAutocomplete = () => {
 const selectSuggestion = (suggestion: any) => {
   searchInput.value = suggestion.name;
   selectedCityName = suggestion.name;
-  validCitySelected = true;
   hideAutocomplete();
-
-  // Enable search button
-  searchButton.disabled = false;
 
   // Store coordinates and city name for map
   selectedCityName = suggestion.name;
@@ -449,16 +442,18 @@ const selectSuggestion = (suggestion: any) => {
     }
   });
   searchInput.value = "";
-  validCitySelected = false; // Reset after submission
 };
 
 // Input event for autocomplete
 searchInput.addEventListener("input", (e) => {
   const query = (e.target as HTMLInputElement).value.trim();
 
-  // Reset validation when user types
-  validCitySelected = false;
-  searchButton.disabled = true;
+  // Show/hide clear button based on input
+  if (query.length > 0) {
+    clearButton.style.display = "flex";
+  } else {
+    clearButton.style.display = "none";
+  }
 
   clearTimeout(autocompleteTimeout);
 
@@ -523,41 +518,10 @@ document.addEventListener("click", (e) => {
 
 /* Event Handlers */
 
-const handleSearchFormSubmit = (event: any): void => {
-  event.preventDefault();
-
-  const search: string = searchInput.value.trim();
-
-  // Validate that user selected from autocomplete
-  if (!validCitySelected) {
-    todayContainer.innerHTML = `
-      <div class="error-message">
-        <i class="fas fa-exclamation-triangle"></i>
-        <span>Please select a city from the autocomplete suggestions</span>
-      </div>
-    `;
-    forecastContainer.innerHTML = "";
-    return;
-  }
-
-  // This should never trigger since button is disabled, but keep as fallback
-  if (!search) {
-    todayContainer.innerHTML = `
-      <div class="error-message">
-        <i class="fas fa-exclamation-triangle"></i>
-        <span>Please enter a city name</span>
-      </div>
-    `;
-    forecastContainer.innerHTML = "";
-    return;
-  }
-
-  fetchWeather(search).then(() => {
-    getAndRenderHistory();
-  });
-  searchInput.value = "";
-  validCitySelected = false; // Reset after submission
-  searchButton.disabled = true; // Disable until next valid selection
+const handleSearchFormSubmit = (e: any) => {
+  e.preventDefault();
+  // Form submission is disabled - city selection happens via autocomplete
+  // This prevents accidental form submissions
 };
 
 const handleSearchHistoryClick = (event: any) => {
@@ -592,8 +556,24 @@ const handleDeleteHistoryClick = (event: any) => {
 const getAndRenderHistory = () =>
   fetchSearchHistory().then(renderSearchHistory);
 
-// Initialize search button as disabled
-searchButton.disabled = true;
+// Clear button functionality
+clearButton?.addEventListener("click", () => {
+  // Clear the weather display
+  todayContainer.innerHTML = `
+    <div class="weather-header-section">
+      <h2 class="city-title" id="search-title">
+        <i class="fas fa-map-marker-alt"></i>
+        Search for a city to get started
+      </h2>
+    </div>
+  `;
+  forecastContainer.innerHTML = "";
+  searchInput.value = "";
+  clearButton.style.display = "none";
+
+  // Reset map to user's location
+  initializeUserLocation();
+});
 
 searchForm?.addEventListener("submit", handleSearchFormSubmit);
 searchHistoryContainer?.addEventListener("click", handleSearchHistoryClick);
