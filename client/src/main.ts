@@ -279,6 +279,153 @@ const buildHistoryListItem = (city: any) => {
   return historyDiv;
 };
 
+/* Autocomplete functionality */
+let autocompleteTimeout: number;
+let selectedSuggestionIndex = -1;
+let autocompleteSuggestions: any[] = [];
+
+// Create autocomplete dropdown element
+const createAutocompleteDropdown = (): HTMLDivElement => {
+  const existing = document.querySelector(
+    ".autocomplete-dropdown"
+  ) as HTMLDivElement;
+  if (existing) return existing;
+
+  const dropdown = document.createElement("div");
+  dropdown.className = "autocomplete-dropdown";
+  dropdown.style.display = "none";
+  searchInput.parentElement?.appendChild(dropdown);
+  return dropdown;
+};
+
+const dropdown = createAutocompleteDropdown();
+
+const fetchAutocomplete = async (query: string) => {
+  try {
+    const response = await fetch(
+      `/api/weather/autocomplete?q=${encodeURIComponent(query)}`
+    );
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error("Autocomplete error:", error);
+    return [];
+  }
+};
+
+const renderAutocomplete = (suggestions: any[]) => {
+  if (!dropdown) return;
+
+  if (suggestions.length === 0) {
+    dropdown.innerHTML =
+      '<div class="autocomplete-empty">No cities found</div>';
+    dropdown.style.display = "block";
+    return;
+  }
+
+  dropdown.innerHTML = suggestions
+    .map(
+      (suggestion, index) => `
+    <div class="autocomplete-item ${
+      index === selectedSuggestionIndex ? "selected" : ""
+    }" data-index="${index}">
+      <i class="fas fa-map-marker-alt"></i>
+      <div>
+        <div class="city-name">${suggestion.name}</div>
+        <div class="city-details">${
+          suggestion.state ? `${suggestion.state}, ` : ""
+        }${suggestion.country}</div>
+      </div>
+    </div>
+  `
+    )
+    .join("");
+
+  dropdown.style.display = "block";
+};
+
+const hideAutocomplete = () => {
+  if (dropdown) {
+    dropdown.style.display = "none";
+    selectedSuggestionIndex = -1;
+  }
+};
+
+const selectSuggestion = (suggestion: any) => {
+  searchInput.value = suggestion.name;
+  hideAutocomplete();
+  // Automatically submit the form with the selected city
+  fetchWeather(suggestion.name).then(() => {
+    getAndRenderHistory();
+  });
+  searchInput.value = "";
+};
+
+// Input event for autocomplete
+searchInput.addEventListener("input", (e) => {
+  const query = (e.target as HTMLInputElement).value.trim();
+
+  clearTimeout(autocompleteTimeout);
+
+  if (query.length < 2) {
+    hideAutocomplete();
+    return;
+  }
+
+  // Debounce autocomplete requests
+  autocompleteTimeout = window.setTimeout(async () => {
+    const suggestions = await fetchAutocomplete(query);
+    autocompleteSuggestions = suggestions;
+    selectedSuggestionIndex = -1;
+    renderAutocomplete(suggestions);
+  }, 300);
+});
+
+// Keyboard navigation
+searchInput.addEventListener("keydown", (e) => {
+  if (!dropdown || dropdown.style.display === "none") return;
+
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    selectedSuggestionIndex = Math.min(
+      selectedSuggestionIndex + 1,
+      autocompleteSuggestions.length - 1
+    );
+    renderAutocomplete(autocompleteSuggestions);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, 0);
+    renderAutocomplete(autocompleteSuggestions);
+  } else if (e.key === "Enter" && selectedSuggestionIndex >= 0) {
+    e.preventDefault();
+    selectSuggestion(autocompleteSuggestions[selectedSuggestionIndex]);
+  } else if (e.key === "Escape") {
+    hideAutocomplete();
+  }
+});
+
+// Click on autocomplete item
+if (dropdown) {
+  dropdown.addEventListener("click", (e) => {
+    const item = (e.target as HTMLElement).closest(".autocomplete-item");
+    if (item) {
+      const index = parseInt(item.getAttribute("data-index") || "0");
+      selectSuggestion(autocompleteSuggestions[index]);
+    }
+  });
+}
+
+// Close dropdown when clicking outside
+document.addEventListener("click", (e) => {
+  if (
+    !searchInput.contains(e.target as Node) &&
+    dropdown &&
+    !dropdown.contains(e.target as Node)
+  ) {
+    hideAutocomplete();
+  }
+});
+
 /* Event Handlers */
 
 const handleSearchFormSubmit = (event: any): void => {

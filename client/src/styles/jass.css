@@ -162,12 +162,14 @@ body.dark-mode .search-title {
 .search-form {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
 }
 
 .input-wrapper {
   position: relative;
   display: flex;
   gap: 0.5rem;
+  align-items: stretch;
 }
 
 .search-input {
@@ -180,6 +182,7 @@ body.dark-mode .search-title {
   background: var(--background-light);
   color: var(--text-dark);
   transition: var(--transition);
+  min-width: 0; /* Prevent flex item overflow */
 }
 
 body.dark-mode .search-input {
@@ -210,11 +213,85 @@ body.dark-mode .search-input {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0; /* Prevent button from shrinking */
+  min-width: 50px; /* Ensure minimum button width */
 }
 
 .search-btn:hover {
   background: var(--primary-dark);
   transform: translateX(2px);
+}
+
+.search-btn:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Autocomplete Dropdown */
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 50px; /* Leave space for button */
+  background: var(--background-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin-top: 0.25rem;
+}
+
+.autocomplete-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: var(--transition);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item:hover {
+  background: rgba(74, 144, 226, 0.1);
+}
+
+.autocomplete-item.selected {
+  background: rgba(74, 144, 226, 0.15);
+}
+
+.autocomplete-item .city-name {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+body.dark-mode .autocomplete-item .city-name {
+  color: var(--text-light);
+}
+
+.autocomplete-item .city-details {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.autocomplete-loading {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.autocomplete-empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 /* History Section */

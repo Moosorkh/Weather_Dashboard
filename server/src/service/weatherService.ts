@@ -156,6 +156,41 @@ class WeatherService {
       throw error;
     }
   }
+
+  // Get city autocomplete suggestions
+  async getCityAutocomplete(query: string) {
+    try {
+      if (!this.baseURL || !this.apiKey) {
+        throw new Error("Invalid API URL or Key");
+      }
+
+      const url = `${this.baseURL}/geo/1.0/direct?q=${encodeURIComponent(
+        query
+      )}&limit=5&appid=${this.apiKey}`;
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Geocoding API failed: ${response.statusText}`);
+      }
+
+      const data: Coordinates[] = await response.json();
+
+      // Format the results for autocomplete
+      return data.map((location) => ({
+        name: location.name,
+        country: location.country,
+        state: location.state || "",
+        lat: location.lat,
+        lon: location.lon,
+        display: location.state
+          ? `${location.name}, ${location.state}, ${location.country}`
+          : `${location.name}, ${location.country}`,
+      }));
+    } catch (error) {
+      console.error("Error fetching city autocomplete:", error);
+      throw error;
+    }
+  }
 }
 
 export default new WeatherService();

@@ -4,6 +4,34 @@ import WeatherService from "../../service/weatherService.js";
 
 const router = Router();
 
+// GET Request for city autocomplete suggestions
+router.get(
+  "/autocomplete",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const query = req.query.q as string;
+
+      if (!query || typeof query !== "string" || query.trim().length < 2) {
+        res.status(400).json({
+          error: "Query must be at least 2 characters long",
+        });
+        return;
+      }
+
+      const suggestions = await WeatherService.getCityAutocomplete(
+        query.trim()
+      );
+      res.status(200).json(suggestions);
+    } catch (error: any) {
+      console.error("Error fetching autocomplete suggestions:", error);
+      res.status(500).json({
+        error: "Failed to fetch city suggestions",
+        message: error.message,
+      });
+    }
+  }
+);
+
 // POST Request with city name to retrieve weather data
 router.post("/", async (req: Request, res: Response): Promise<void> => {
   try {
