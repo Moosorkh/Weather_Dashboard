@@ -4,7 +4,7 @@ import NodeCache from "node-cache";
 dotenv.config();
 // Define a class for the Weather object
 class Weather {
-    constructor(city, date, humidity, tempF, windSpeed, icon, iconDescription) {
+    constructor(city, date, humidity, tempF, windSpeed, icon, iconDescription, feelsLikeF, uvIndex, visibility, pressure) {
         this.city = city;
         this.date = date;
         this.humidity = humidity;
@@ -12,6 +12,10 @@ class Weather {
         this.windSpeed = windSpeed;
         this.icon = icon;
         this.iconDescription = iconDescription;
+        this.feelsLikeF = feelsLikeF;
+        this.uvIndex = uvIndex;
+        this.visibility = visibility;
+        this.pressure = pressure;
     }
 }
 const rateLimiter = new NodeCache({ stdTTL: 60, checkperiod: 120 });
@@ -70,7 +74,11 @@ class WeatherService {
     }
     parseCurrentWeather(response) {
         const parsedDate = dayjs.unix(response.dt).format("MM/DD/YYYY");
-        return new Weather(this.city, parsedDate, response.main.humidity, response.main.temp, response.wind.speed, response.weather[0].icon, response.weather[0].description || response.weather[0].main);
+        return new Weather(this.city, parsedDate, response.main.humidity, response.main.temp, response.wind.speed, response.weather[0].icon, response.weather[0].description || response.weather[0].main, response.main.feels_like, // Feels like temperature
+        undefined, // UV Index (requires separate API call)
+        response.visibility, // Visibility in meters
+        response.main.pressure // Atmospheric pressure
+        );
     }
     buildForecastArray(currentWeather, weatherData) {
         const weatherForecast = [currentWeather];
@@ -78,7 +86,7 @@ class WeatherService {
             return data.dt_txt.includes("12:00:00");
         });
         for (const day of filteredWeatherData) {
-            weatherForecast.push(new Weather(this.city, dayjs.unix(day.dt).format("MM/DD/YYYY"), day.main.humidity, day.main.temp, day.wind.speed, day.weather[0].icon, day.weather[0].description || day.weather[0].main));
+            weatherForecast.push(new Weather(this.city, dayjs.unix(day.dt).format("MM/DD/YYYY"), day.main.humidity, day.main.temp, day.wind.speed, day.weather[0].icon, day.weather[0].description || day.weather[0].main, day.main.feels_like, undefined, day.visibility, day.main.pressure));
         }
         return weatherForecast;
     }
@@ -102,6 +110,54 @@ class WeatherService {
         catch (error) {
             console.error(`Error fetching weather for ${city}:`, error);
             throw error;
+        }
+    }
+    // Get city autocomplete suggestions
+    async getCityAutocomplete(query) {
+        try {
+            if (!this.baseURL || !this.apiKey) {
+                throw new Error("Invalid API URL or Key");
+            }
+            const url = `${this.baseURL}/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=5&appid=${this.apiKey}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Geocoding API failed: ${response.statusText}`);
+            }
+            const data = await response.json();
+            // Format the results for autocomplete
+            return data.map((location) => ({
+                name: location.name,
+                country: location.country,
+                state: location.state || "",
+                lat: location.lat,
+                lon: location.lon,
+                display: location.state
+                    ? `${location.name}, ${location.state}, ${location.country}`
+                    : `${location.name}, ${location.country}`,
+            }));
+        }
+        catch (error) {
+            console.error("Error fetching city autocomplete:", error);
+            throw error;
+        }
+    }
+    // Verify if a city exists in OpenWeather database
+    async verifyCityExists(cityName) {
+        try {
+            if (!this.baseURL || !this.apiKey) {
+                throw new Error("Invalid API URL or Key");
+            }
+            const url = `${this.baseURL}/geo/1.0/direct?q=${encodeURIComponent(cityName)}&limit=1&appid=${this.apiKey}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+                return false;
+            }
+            const data = await response.json();
+            return data.length > 0;
+        }
+        catch (error) {
+            console.error("Error verifying city:", error);
+            return false;
         }
     }
 }

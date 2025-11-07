@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.21",
     "typescript": "^5.4.5",
     "vite": "^5.2.0"
   },
   "dependencies": {
-    "dayjs": "^1.11.10"
+    "dayjs": "^1.11.10",
+    "leaflet": "^1.9.4"
   }
 }

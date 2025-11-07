@@ -58,8 +58,25 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Additional validation: minimum 2 characters
+    if (cityName.trim().length < 2) {
+      res.status(400).json({
+        error: "City name must be at least 2 characters long",
+      });
+      return;
+    }
+
     const trimmedCityName = cityName.trim();
     const sessionId = req.session.id;
+
+    // First, verify the city exists via geocoding
+    const cityExists = await WeatherService.verifyCityExists(trimmedCityName);
+    if (!cityExists) {
+      res.status(404).json({
+        error: `City "${trimmedCityName}" not found. Please check the spelling or try another city.`,
+      });
+      return;
+    }
 
     // GET weather data from city name
     const weatherData = await WeatherService.getWeatherForCity(trimmedCityName);

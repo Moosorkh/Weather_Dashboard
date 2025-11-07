@@ -2,6 +2,27 @@ import { Router } from "express";
 import HistoryService from "../../service/historyService.js";
 import WeatherService from "../../service/weatherService.js";
 const router = Router();
+// GET Request for city autocomplete suggestions
+router.get("/autocomplete", async (req, res) => {
+    try {
+        const query = req.query.q;
+        if (!query || typeof query !== "string" || query.trim().length < 2) {
+            res.status(400).json({
+                error: "Query must be at least 2 characters long",
+            });
+            return;
+        }
+        const suggestions = await WeatherService.getCityAutocomplete(query.trim());
+        res.status(200).json(suggestions);
+    }
+    catch (error) {
+        console.error("Error fetching autocomplete suggestions:", error);
+        res.status(500).json({
+            error: "Failed to fetch city suggestions",
+            message: error.message,
+        });
+    }
+});
 // POST Request with city name to retrieve weather data
 router.post("/", async (req, res) => {
     try {
@@ -23,8 +44,23 @@ router.post("/", async (req, res) => {
             });
             return;
         }
+        // Additional validation: minimum 2 characters
+        if (cityName.trim().length < 2) {
+            res.status(400).json({
+                error: "City name must be at least 2 characters long",
+            });
+            return;
+        }
         const trimmedCityName = cityName.trim();
         const sessionId = req.session.id;
+        // First, verify the city exists via geocoding
+        const cityExists = await WeatherService.verifyCityExists(trimmedCityName);
+        if (!cityExists) {
+            res.status(404).json({
+                error: `City "${trimmedCityName}" not found. Please check the spelling or try another city.`,
+            });
+            return;
+        }
         // GET weather data from city name
         const weatherData = await WeatherService.getWeatherForCity(trimmedCityName);
         if (!weatherData) {

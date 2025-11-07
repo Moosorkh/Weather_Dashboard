@@ -1,5 +1,8 @@
 import "./styles/jass.css";
 
+// Declare Leaflet global (loaded via CDN)
+declare const L: any;
+
 interface WeatherData {
   city: string;
   date: string;
@@ -8,11 +11,20 @@ interface WeatherData {
   tempF: number;
   windSpeed: number;
   humidity: number;
+  feelsLikeF?: number;
+  uvIndex?: number;
+  visibility?: number;
+  pressure?: number;
 }
 
 // Temperature unit state
 let currentUnit: "F" | "C" = "F";
 let currentWeatherData: WeatherData[] = [];
+let currentCityCoordinates: { lat: number; lon: number } | null = null;
+
+// Validation state - track if user selected from autocomplete
+let validCitySelected = false;
+let selectedCityName = "";
 
 // * All necessary DOM elements selected
 const searchForm: HTMLFormElement = document.getElementById(
@@ -21,6 +33,9 @@ const searchForm: HTMLFormElement = document.getElementById(
 const searchInput: HTMLInputElement = document.getElementById(
   "search-input"
 ) as HTMLInputElement;
+const searchButton = document.getElementById(
+  "search-button"
+) as HTMLButtonElement;
 const todayContainer = document.querySelector("#today") as HTMLDivElement;
 const forecastContainer = document.querySelector("#forecast") as HTMLDivElement;
 const searchHistoryContainer = document.getElementById(
@@ -125,8 +140,20 @@ const deleteCityFromHistory = async (id: string) => {
 
 /* Render Functions */
 const renderCurrentWeather = (currentWeather: WeatherData): void => {
-  const { city, date, icon, iconDescription, tempF, windSpeed, humidity } =
-    currentWeather;
+  const {
+    city,
+    date,
+    icon,
+    iconDescription,
+    tempF,
+    windSpeed,
+    humidity,
+    feelsLikeF,
+    visibility,
+    pressure,
+  } = currentWeather;
+
+  const visibilityKm = visibility ? (visibility / 1000).toFixed(1) : "N/A";
 
   todayContainer.innerHTML = `
     <div class="weather-header-section">
@@ -149,6 +176,15 @@ const renderCurrentWeather = (currentWeather: WeatherData): void => {
         </div>
       </div>
       <div class="stat-card">
+        <i class="fas fa-temperature-half stat-icon"></i>
+        <div class="stat-content">
+          <span class="stat-label">Feels Like</span>
+          <span class="stat-value">${
+            feelsLikeF ? getTemperatureDisplay(feelsLikeF) : "N/A"
+          }</span>
+        </div>
+      </div>
+      <div class="stat-card">
         <i class="fas fa-wind stat-icon"></i>
         <div class="stat-content">
           <span class="stat-label">Wind Speed</span>
@@ -160,6 +196,20 @@ const renderCurrentWeather = (currentWeather: WeatherData): void => {
         <div class="stat-content">
           <span class="stat-label">Humidity</span>
           <span class="stat-value">${humidity}%</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <i class="fas fa-eye stat-icon"></i>
+        <div class="stat-content">
+          <span class="stat-label">Visibility</span>
+          <span class="stat-value">${visibilityKm} km</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <i class="fas fa-gauge-high stat-icon"></i>
+        <div class="stat-content">
+          <span class="stat-label">Pressure</span>
+          <span class="stat-value">${pressure || "N/A"} hPa</span>
         </div>
       </div>
     </div>
@@ -236,6 +286,13 @@ const clearWeatherDisplay = () => {
         </div>
       </div>
       <div class="stat-card">
+        <i class="fas fa-temperature-half stat-icon"></i>
+        <div class="stat-content">
+          <span class="stat-label">Feels Like</span>
+          <span class="stat-value">--°${currentUnit}</span>
+        </div>
+      </div>
+      <div class="stat-card">
         <i class="fas fa-wind stat-icon"></i>
         <div class="stat-content">
           <span class="stat-label">Wind Speed</span>
@@ -247,6 +304,20 @@ const clearWeatherDisplay = () => {
         <div class="stat-content">
           <span class="stat-label">Humidity</span>
           <span class="stat-value">-- %</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <i class="fas fa-eye stat-icon"></i>
+        <div class="stat-content">
+          <span class="stat-label">Visibility</span>
+          <span class="stat-value">-- km</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <i class="fas fa-gauge-high stat-icon"></i>
+        <div class="stat-content">
+          <span class="stat-label">Pressure</span>
+          <span class="stat-value">-- hPa</span>
         </div>
       </div>
     </div>
@@ -353,17 +424,41 @@ const hideAutocomplete = () => {
 
 const selectSuggestion = (suggestion: any) => {
   searchInput.value = suggestion.name;
+  selectedCityName = suggestion.name;
+  validCitySelected = true;
   hideAutocomplete();
+
+  // Enable search button
+  searchButton.disabled = false;
+
+  // Store coordinates and city name for map
+  selectedCityName = suggestion.name;
+  currentCityCoordinates = { lat: suggestion.lat, lon: suggestion.lon };
+
   // Automatically submit the form with the selected city
   fetchWeather(suggestion.name).then(() => {
     getAndRenderHistory();
+
+    // Update map with new city location
+    if (currentCityCoordinates) {
+      initializeMap(
+        currentCityCoordinates.lat,
+        currentCityCoordinates.lon,
+        selectedCityName
+      );
+    }
   });
   searchInput.value = "";
+  validCitySelected = false; // Reset after submission
 };
 
 // Input event for autocomplete
 searchInput.addEventListener("input", (e) => {
   const query = (e.target as HTMLInputElement).value.trim();
+
+  // Reset validation when user types
+  validCitySelected = false;
+  searchButton.disabled = true;
 
   clearTimeout(autocompleteTimeout);
 
@@ -432,19 +527,28 @@ const handleSearchFormSubmit = (event: any): void => {
   event.preventDefault();
 
   const search: string = searchInput.value.trim();
-  const regex = /^[a-zA-Z\s]*$/;
 
-  // Validate empty input
-  if (!search) {
-    alert("Search field is empty. Please enter a valid city name");
-    forecastContainer.innerHTML = ""; // Clear forecast on error
+  // Validate that user selected from autocomplete
+  if (!validCitySelected) {
+    todayContainer.innerHTML = `
+      <div class="error-message">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>Please select a city from the autocomplete suggestions</span>
+      </div>
+    `;
+    forecastContainer.innerHTML = "";
     return;
   }
 
-  // Validate input format
-  if (!regex.test(search)) {
-    alert("Please enter a valid city name.");
-    forecastContainer.innerHTML = ""; // Clear forecast on error
+  // This should never trigger since button is disabled, but keep as fallback
+  if (!search) {
+    todayContainer.innerHTML = `
+      <div class="error-message">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>Please enter a city name</span>
+      </div>
+    `;
+    forecastContainer.innerHTML = "";
     return;
   }
 
@@ -452,6 +556,8 @@ const handleSearchFormSubmit = (event: any): void => {
     getAndRenderHistory();
   });
   searchInput.value = "";
+  validCitySelected = false; // Reset after submission
+  searchButton.disabled = true; // Disable until next valid selection
 };
 
 const handleSearchHistoryClick = (event: any) => {
@@ -485,6 +591,9 @@ const handleDeleteHistoryClick = (event: any) => {
 
 const getAndRenderHistory = () =>
   fetchSearchHistory().then(renderSearchHistory);
+
+// Initialize search button as disabled
+searchButton.disabled = true;
 
 searchForm?.addEventListener("submit", handleSearchFormSubmit);
 searchHistoryContainer?.addEventListener("click", handleSearchHistoryClick);
@@ -530,3 +639,127 @@ if (unitToggleBtn) {
     }
   });
 }
+
+/* Feature Card Click Handlers - Coming Soon Alerts */
+const showComingSoonAlert = (featureName: string) => {
+  todayContainer.scrollIntoView({ behavior: "smooth" });
+  const alertHtml = `
+    <div class="coming-soon-alert">
+      <i class="fas fa-rocket"></i>
+      <h3>Coming Soon!</h3>
+      <p>${featureName} feature is currently under development.</p>
+      <p>Stay tuned for exciting updates!</p>
+    </div>
+  `;
+
+  // Create temporary alert
+  const alertDiv = document.createElement("div");
+  alertDiv.className = "feature-alert-overlay";
+  alertDiv.innerHTML = `
+    <div class="feature-alert-content">
+      ${alertHtml}
+      <button class="alert-close-btn">Got it!</button>
+    </div>
+  `;
+
+  document.body.appendChild(alertDiv);
+
+  // Close button handler
+  const closeBtn = alertDiv.querySelector(".alert-close-btn");
+  closeBtn?.addEventListener("click", () => {
+    alertDiv.remove();
+  });
+
+  // Click outside to close
+  alertDiv.addEventListener("click", (e) => {
+    if (e.target === alertDiv) {
+      alertDiv.remove();
+    }
+  });
+};
+
+// Attach event listeners to "Coming Soon" feature cards
+document
+  .getElementById("ai-insights-card")
+  ?.addEventListener("click", () => showComingSoonAlert("AI Weather Insights"));
+document
+  .getElementById("alerts-card")
+  ?.addEventListener("click", () => showComingSoonAlert("Weather Alerts"));
+
+/* Weather Map Feature */
+let weatherMap: any = null;
+let userMarker: any = null;
+
+const initializeMap = (
+  lat: number,
+  lon: number,
+  locationName: string = "Your Location"
+) => {
+  const mapContainer = document.getElementById("weather-map");
+  if (!mapContainer) return;
+
+  // If map already exists, update center and marker
+  if (weatherMap) {
+    weatherMap.setView([lat, lon], 10);
+
+    // Remove old marker if exists
+    if (userMarker) {
+      weatherMap.removeLayer(userMarker);
+    }
+
+    // Add new marker
+    userMarker = L.marker([lat, lon])
+      .addTo(weatherMap)
+      .bindPopup(`<b>${locationName}</b>`)
+      .openPopup();
+
+    return;
+  }
+
+  // Create new map
+  weatherMap = L.map("weather-map").setView([lat, lon], 10);
+
+  // Add OpenStreetMap tile layer
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap contributors",
+  }).addTo(weatherMap);
+
+  // Add marker for the location
+  userMarker = L.marker([lat, lon])
+    .addTo(weatherMap)
+    .bindPopup(`<b>${locationName}</b>`)
+    .openPopup();
+};
+
+// Get user's current location and initialize map
+const initializeUserLocation = () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        currentCityCoordinates = { lat: latitude, lon: longitude };
+        initializeMap(latitude, longitude, "Your Current Location");
+      },
+      (error) => {
+        console.log("Geolocation error:", error.message);
+        // Default to a major city (New York) if geolocation fails
+        const defaultLat = 40.7128;
+        const defaultLon = -74.006;
+        currentCityCoordinates = { lat: defaultLat, lon: defaultLon };
+        initializeMap(defaultLat, defaultLon, "New York, NY (Default)");
+      }
+    );
+  } else {
+    // Geolocation not supported, use default location
+    const defaultLat = 40.7128;
+    const defaultLon = -74.006;
+    currentCityCoordinates = { lat: defaultLat, lon: defaultLon };
+    initializeMap(defaultLat, defaultLon, "New York, NY (Default)");
+  }
+};
+
+// Initialize map when page loads
+document.addEventListener("DOMContentLoaded", () => {
+  initializeUserLocation();
+});

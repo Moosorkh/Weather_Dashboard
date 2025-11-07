@@ -21,7 +21,11 @@ class Weather {
     public tempF: number,
     public windSpeed: number,
     public icon: string,
-    public iconDescription: string
+    public iconDescription: string,
+    public feelsLikeF?: number,
+    public uvIndex?: number,
+    public visibility?: number,
+    public pressure?: number
   ) {}
 }
 
@@ -107,7 +111,11 @@ class WeatherService {
       response.main.temp,
       response.wind.speed,
       response.weather[0].icon,
-      response.weather[0].description || response.weather[0].main
+      response.weather[0].description || response.weather[0].main,
+      response.main.feels_like, // Feels like temperature
+      undefined, // UV Index (requires separate API call)
+      response.visibility, // Visibility in meters
+      response.main.pressure // Atmospheric pressure
     );
   }
 
@@ -126,7 +134,11 @@ class WeatherService {
           day.main.temp,
           day.wind.speed,
           day.weather[0].icon,
-          day.weather[0].description || day.weather[0].main
+          day.weather[0].description || day.weather[0].main,
+          day.main.feels_like,
+          undefined,
+          day.visibility,
+          day.main.pressure
         )
       );
     }
@@ -189,6 +201,30 @@ class WeatherService {
     } catch (error) {
       console.error("Error fetching city autocomplete:", error);
       throw error;
+    }
+  }
+
+  // Verify if a city exists in OpenWeather database
+  async verifyCityExists(cityName: string): Promise<boolean> {
+    try {
+      if (!this.baseURL || !this.apiKey) {
+        throw new Error("Invalid API URL or Key");
+      }
+
+      const url = `${this.baseURL}/geo/1.0/direct?q=${encodeURIComponent(
+        cityName
+      )}&limit=1&appid=${this.apiKey}`;
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        return false;
+      }
+
+      const data: Coordinates[] = await response.json();
+      return data.length > 0;
+    } catch (error) {
+      console.error("Error verifying city:", error);
+      return false;
     }
   }
 }
